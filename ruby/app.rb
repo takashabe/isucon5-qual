@@ -194,10 +194,12 @@ SQL
     entries = db.xquery(entries_query, current_user[:id])
       .map{ |entry| entry[:is_private] = (entry[:private] == 1); entry[:title], entry[:content] = entry[:body].split(/\n/, 2); entry }
 
+    # 自分のエントリーに付いたコメントを取得する
     comments_for_me_query = <<SQL
-SELECT c.id AS id, c.entry_id AS entry_id, c.user_id AS user_id, c.comment AS comment, c.created_at AS created_at
+SELECT c.id AS id, c.entry_id AS entry_id, c.user_id AS user_id, u.account_name AS account_name, u.nick_name AS nick_name, c.comment AS comment, c.created_at AS created_at
 FROM comments c
 JOIN entries e ON c.entry_id = e.id
+JOIN users u ON c.user_id = u.id
 WHERE e.user_id = ?
 ORDER BY c.created_at DESC
 LIMIT 10
@@ -205,7 +207,7 @@ SQL
     comments_for_me = db.xquery(comments_for_me_query, current_user[:id])
 
     entries_of_friends = []
-    db.xquery('SELECT * FROM entries WHERE user_id IN (?) ORDER BY created_at DESC LIMIT 10', friends).each do |entry|
+    db.xquery('SELECT e.*, u.account_name AS account_name, u.nick_name AS nick_name FROM entries e USE INDEX(created_at) JOIN users u ON e.user_id = u.id WHERE user_id IN (?) ORDER BY created_at DESC LIMIT 10', friends).each do |entry|
       entry[:title] = entry[:body].split(/\n/).first
       entries_of_friends << entry
     end
@@ -220,8 +222,9 @@ SQL
     end
 
     query = <<SQL
-SELECT user_id, owner_id, DATE(created_at) AS date, MAX(created_at) AS updated
-FROM footprints
+SELECT f.user_id AS user_id, account_name, nick_name, f.owner_id AS owner_id, DATE(f.created_at) AS date, MAX(f.created_at) AS updated
+FROM footprints f
+JOIN users u ON f.owner_id = u.id
 WHERE user_id = ?
 GROUP BY user_id, owner_id, DATE(created_at)
 ORDER BY updated DESC
