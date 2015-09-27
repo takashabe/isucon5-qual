@@ -1,3 +1,4 @@
+# coding: utf-8
 require 'sinatra/base'
 require 'mysql2'
 require 'mysql2-cs-bind'
@@ -161,10 +162,22 @@ SQL
     redirect '/login'
   end
 
+  def list_friends(user_id)
+    friends_query = 'SELECT * FROM relations WHERE one = ? OR another = ? ORDER BY created_at DESC'
+    friends_map = {}
+    db.xquery(friends_query, user_id, user_id).each do |rel|
+      key = (rel[:one] == user_id ? :another : :one)
+      friends_map[rel[key]] ||= rel[:created_at]
+    end
+    friends_map.map{|user_id, created_at| [user_id, created_at]}
+  end
+
   get '/' do
     authenticated!
 
     profile = db.xquery('SELECT * FROM profiles WHERE user_id = ?', current_user[:id]).first
+
+    friends = list_friends(current_user[:id])
 
     entries_query = 'SELECT * FROM entries WHERE user_id = ? ORDER BY created_at LIMIT 5'
     entries = db.xquery(entries_query, current_user[:id])
@@ -197,14 +210,6 @@ SQL
       comments_of_friends << comment
       break if comments_of_friends.size >= 10
     end
-
-    friends_query = 'SELECT * FROM relations WHERE one = ? OR another = ? ORDER BY created_at DESC'
-    friends_map = {}
-    db.xquery(friends_query, current_user[:id], current_user[:id]).each do |rel|
-      key = (rel[:one] == current_user[:id] ? :another : :one)
-      friends_map[rel[key]] ||= rel[:created_at]
-    end
-    friends = friends_map.map{|user_id, created_at| [user_id, created_at]}
 
     query = <<SQL
 SELECT user_id, owner_id, DATE(created_at) AS date, MAX(created_at) AS updated
