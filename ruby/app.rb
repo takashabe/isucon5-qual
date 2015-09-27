@@ -129,7 +129,7 @@ SQL
 
     def mark_footprint(user_id)
       if user_id != current_user[:id]
-        query = 'INSERT INTO footprints (user_id,owner_id) VALUES (?,?)'
+        query = 'INSERT INTO footprints (user_id,owner_id,date_id) VALUES (?,?,DATE(NOW()))'
         db.xquery(query, user_id, current_user[:id])
       end
     end
@@ -222,11 +222,11 @@ SQL
     end
 
     query = <<SQL
-SELECT f.user_id AS user_id, account_name, nick_name, f.owner_id AS owner_id, DATE(f.created_at) AS date, MAX(f.created_at) AS updated
+SELECT f.user_id AS user_id, account_name, nick_name, f.owner_id AS owner_id, date_id AS date, MAX(f.created_at) AS updated
 FROM footprints f
 JOIN users u ON f.owner_id = u.id
 WHERE user_id = ?
-GROUP BY user_id, owner_id, DATE(created_at)
+GROUP BY user_id, owner_id, date_id
 ORDER BY updated DESC
 LIMIT 10
 SQL
