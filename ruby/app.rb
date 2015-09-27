@@ -213,7 +213,7 @@ SQL
     end
 
     comments_of_friends = []
-    db.xquery('SELECT * FROM comments WHERE user_id IN (?) ORDER BY created_at DESC LIMIT 10', friends).each do |comment|
+    db.xquery('SELECT c.*, u.nick_name AS comment_nick_name, u.account_name AS comment_account_name, eo.nick_name AS entry_nick_name, eo.account_name AS entry_account_name FROM comments c USE INDEX(idx_created_at_user_id) JOIN users u ON c.user_id = u.id JOIN entries e ON c.entry_id = e.id JOIN users eo ON e.user_id=eo.id WHERE c.user_id IN (?) ORDER BY created_at DESC LIMIT 10', friends).each do |comment|
       entry = db.xquery('SELECT * FROM entries WHERE id = ?', comment[:entry_id]).first
       entry[:is_private] = (entry[:private] == 1)
       next if entry[:is_private] && !permitted?(entry[:user_id])
@@ -309,7 +309,8 @@ SQL
     if entry[:is_private] && !permitted?(owner[:id])
       raise Isucon5::PermissionDenied
     end
-    comments = db.xquery('SELECT * FROM comments WHERE entry_id = ?', entry[:id])
+#    comments = db.xquery('SELECT * FROM comments WHERE entry_id = ?', entry[:id])
+    comments = db.xquery('SELECT c.comment, c.created_at, u.account_name, u.nick_name FROM comments c JOIN users u ON c.user_id=u.id WHERE entry_id = ?', entry[:id])
     mark_footprint(owner[:id])
     erb :entry, locals: { owner: owner, entry: entry, comments: comments }
   end
@@ -339,13 +340,16 @@ SQL
 
   get '/footprints' do
     authenticated!
+#    query = <<SQL
+#SELECT user_id, owner_id, DATE(created_at) AS date, MAX(created_at) as updated
+#FROM footprints
+#WHERE user_id = ?
+#GROUP BY user_id, owner_id, DATE(created_at)
+#ORDER BY updated DESC
+#LIMIT 50
+#SQL
     query = <<SQL
-SELECT user_id, owner_id, DATE(created_at) AS date, MAX(created_at) as updated
-FROM footprints
-WHERE user_id = ?
-GROUP BY user_id, owner_id, DATE(created_at)
-ORDER BY updated DESC
-LIMIT 50
+SELECT f.user_id, f.owner_id, DATE(f.created_at) AS date, MAX(f.created_at) as updated, u.account_name, u.nick_name FROM footprints f JOIN users u ON u.id=f.owner_id WHERE f.user_id = ? GROUP BY f.user_id, f.owner_id, DATE(f.created_at) ORDER BY updated DESC LIMIT 50;
 SQL
     footprints = db.xquery(query, current_user[:id])
     erb :footprints, locals: { footprints: footprints }
@@ -353,7 +357,10 @@ SQL
 
   get '/friends' do
     authenticated!
-    friends = list_friends(current_user[:id])
+#    friends = list_friends(current_user[:id])
+    friends_query = 'SELECT r.one, r.created_at, u.account_name, u.nick_name FROM relations r JOIN users u ON r.another=u.id WHERE one = ? ORDER BY created_at DESC'
+    friends = db.xquery(friends_query, current_user[:id])
+
     erb :friends, locals: { friends: friends }
   end
 
