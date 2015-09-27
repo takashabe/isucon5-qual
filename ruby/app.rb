@@ -1,5 +1,6 @@
 # coding: utf-8
 require 'sinatra/base'
+require 'sinatra/reloader'
 require 'mysql2'
 require 'mysql2-cs-bind'
 require 'tilt/erubis'
@@ -24,6 +25,17 @@ class Isucon5::WebApp < Sinatra::Base
   #set :sessions, true
   set :session_secret, ENV['ISUCON5_SESSION_SECRET'] || 'beermoris'
   set :protection, true
+
+  configure :development do
+    enable :logging
+    file = File.new('/tmp/sinatra.log', 'a+')
+    file.sync = true
+    use Rack::CommonLogger, file
+    
+    # use Rack::PerftoolsProfiler # , :default_printer => 'gif'
+
+    register Sinatra::Reloader
+  end
 
   helpers do
     def config
@@ -342,14 +354,8 @@ SQL
 
   get '/friends' do
     authenticated!
-    query = 'SELECT * FROM relations WHERE one = ? OR another = ? ORDER BY created_at DESC'
-    friends = {}
-    db.xquery(query, current_user[:id], current_user[:id]).each do |rel|
-      key = (rel[:one] == current_user[:id] ? :another : :one)
-      friends[rel[key]] ||= rel[:created_at]
-    end
-    list = friends.map{|user_id, created_at| [user_id, created_at]}
-    erb :friends, locals: { friends: list }
+    friends = list_friends(current_user[:id])
+    erb :friends, locals: { friends: friends }
   end
 
   post '/friends/:account_name' do
