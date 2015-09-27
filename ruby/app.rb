@@ -211,8 +211,7 @@ SQL
     end
 
     comments_of_friends = []
-    db.query('SELECT * FROM comments ORDER BY created_at DESC LIMIT 1000').each do |comment|
-      next unless is_friend?(comment[:user_id])
+    db.xquery('SELECT * FROM comments WHERE user_id IN (?) ORDER BY created_at DESC LIMIT 10', friends).each do |comment|
       entry = db.xquery('SELECT * FROM entries WHERE id = ?', comment[:entry_id]).first
       entry[:is_private] = (entry[:private] == 1)
       next if entry[:is_private] && !permitted?(entry[:user_id])
