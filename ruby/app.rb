@@ -115,7 +115,7 @@ SQL
     def is_friend?(another_id)
       user_id = session[:user_id]
       query = 'SELECT COUNT(1) AS cnt FROM relations WHERE (one = ? AND another = ?)'
-      cnt = db.xquery(query, user_id, another_id, another_id, user_id).first[:cnt]
+      cnt = db.xquery(query, user_id, another_id).first[:cnt]
       cnt.to_i > 0 ? true : false
     end
 
@@ -180,7 +180,7 @@ SQL
     db.xquery(friends_query, user_id).each do |rel|
       friends_map[rel[:another]] ||= rel[:created_at]
     end
-    friends_map.map{|user_id, created_at| [user_id, created_at]}
+    friends_map
   end
 
   get '/' do
@@ -188,7 +188,7 @@ SQL
 
     profile = db.xquery('SELECT * FROM profiles WHERE user_id = ?', current_user[:id]).first
 
-    friends = list_friends(current_user[:id])
+    friends = list_friends(current_user[:id]).keys
 
     entries_query = 'SELECT * FROM entries WHERE user_id = ? ORDER BY created_at LIMIT 5'
     entries = db.xquery(entries_query, current_user[:id])
@@ -205,11 +205,9 @@ SQL
     comments_for_me = db.xquery(comments_for_me_query, current_user[:id])
 
     entries_of_friends = []
-    db.query('SELECT * FROM entries ORDER BY created_at DESC LIMIT 1000').each do |entry|
-      next unless is_friend?(entry[:user_id])
+    db.xquery('SELECT * FROM entries WHERE user_id IN (?) ORDER BY created_at DESC LIMIT 10', friends).each do |entry|
       entry[:title] = entry[:body].split(/\n/).first
       entries_of_friends << entry
-      break if entries_of_friends.size >= 10
     end
 
     comments_of_friends = []
