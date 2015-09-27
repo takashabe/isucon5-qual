@@ -175,11 +175,10 @@ SQL
   end
 
   def list_friends(user_id)
-    friends_query = 'SELECT * FROM relations WHERE one = ? OR another = ? ORDER BY created_at DESC'
+    friends_query = 'SELECT * FROM relations WHERE one = ? ORDER BY created_at DESC'
     friends_map = {}
-    db.xquery(friends_query, user_id, user_id).each do |rel|
-      key = (rel[:one] == user_id ? :another : :one)
-      friends_map[rel[key]] ||= rel[:created_at]
+    db.xquery(friends_query, user_id).each do |rel|
+      friends_map[rel[:another]] ||= rel[:created_at]
     end
     friends_map.map{|user_id, created_at| [user_id, created_at]}
   end
