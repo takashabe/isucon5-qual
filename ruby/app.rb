@@ -227,7 +227,7 @@ SQL
       comments_for_me: comments_for_me,
       entries_of_friends: entries_of_friends,
       comments_of_friends: comments_of_friends,
-      friends: friends,
+      num_of_friends: friends.size,
       footprints: footprints
     }
     erb :index, locals: locals
